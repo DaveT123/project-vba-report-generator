@@ -1,0 +1,148 @@
+Sub EmailSelectedSheets()
+'PURPOSE: Create email message with only Selected Worksheets attached
+
+Dim SourceWB As Workbook
+Dim DestinWB As Workbook
+Dim OutlookApp As Object
+Dim OutlookMessage As Object
+Dim TempFileName As Variant
+Dim ExternalLinks As Variant
+Dim TempFilePath As String
+Dim FileExtStr As String
+Dim DefaultName As String
+Dim UserAnswer As Long
+Dim x As Long
+Dim emailRng As Range, c1 As Range
+Dim sTo As String
+Dim sCC As String
+Dim FileDate As String
+Dim folderPath As String
+
+'Optimize Code
+  Application.ScreenUpdating = False
+  Application.EnableEvents = False
+  Application.DisplayAlerts = False
+
+'Copy only selected sheets into new workbook
+  Set SourceWB = ActiveWorkbook
+  SourceWB.Worksheets("PR Report").Copy
+  Set DestinWB = ActiveWorkbook
+
+'Check for macro code residing in
+  If Val(Application.Version) >= 12 Then
+    If SourceWB.FileFormat = 51 And SourceWB.HasVBProject = True Then
+      UserAnswer = MsgBox("There was VBA code found in this xlsx file. " & _
+        "If you proceed the VBA code will not be included in your email attachment. " & _
+        "Do you wish to proceed?", vbYesNo, "VBA Code Found!")
+    
+    'Handle if user cancels
+      If UserAnswer = vbNo Then
+        DestinWB.Close SaveChanges:=False
+        GoTo ExitSub
+      End If
+      
+    End If
+  End If
+
+'Determine Temporary File Path
+  TempFilePath = Environ$("temp") & "\"
+
+'File name
+  FileDate = Format(Date, "Medium Date")
+  TempFileName = "PR Report_" & FileDate
+  
+'Determine File Extension
+  FileExtStr = ".xlsx"
+
+'Break External Links
+  ExternalLinks = DestinWB.LinkSources(Type:=xlLinkTypeExcelLinks)
+
+    'Loop Through each External Link in ActiveWorkbook and Break it
+      On Error Resume Next
+        For x = 1 To UBound(ExternalLinks)
+          DestinWB.BreakLink Name:=ExternalLinks(x), Type:=xlLinkTypeExcelLinks
+        Next x
+      On Error GoTo 0
+      
+' Amend PR Report to desired format
+Range("A1").Select
+Selection.Cut
+Range("E1").Select
+ActiveSheet.Paste
+Columns("A:D").Select
+Range("D1").Activate
+Selection.Delete Shift:=xlToLeft
+Columns("R:R").Select
+Selection.Delete Shift:=xlToLeft
+Range("A1").Select
+      
+'Save Temporary Workbook
+  DestinWB.SaveCopyAs TempFilePath & TempFileName & FileExtStr
+
+'Create Instance of Outlook
+  ' On Error Resume Next
+    Set OutlookApp = GetObject(class:="Outlook.Application") 'Handles if Outlook is already open
+  Err.Clear
+    If OutlookApp Is Nothing Then Set OutlookApp = CreateObject(class:="Outlook.Application") 'If not, open Outlook
+    
+    If Err.Number = 429 Then
+      MsgBox "Outlook could not be found, aborting.", 16, "Outlook Not Found"
+      GoTo ExitSub
+    End If
+  On Error GoTo 0
+
+'Create a new email message
+  Set OutlookMessage = OutlookApp.CreateItem(0)
+
+' Loop through email addresses in excel
+  Workbooks("GUI_Scripting_ExtractingReport.xlsm").Activate
+  Set emailRng = Worksheets("Email Recipient").Range("A2:A1000")
+
+    For Each cl In emailRng
+        sTo = sTo & ";" & cl.Value
+    Next
+        sTo = Mid(sTo, 2)
+
+  Set emailRng = Worksheets("Email Recipient").Range("B2:B1000")
+
+    For Each cl In emailRng
+        sCC = sCC & ";" & cl.Value
+    Next
+        sCC = Mid(sCC, 2)
+
+'Create Outlook email with attachment
+folderPath = Application.ActiveWorkbook.Path
+
+    With OutlookMessage
+     .To = sTo
+     .CC = sCC
+     .BCC = ""
+     .Subject = TempFileName
+     .Body = "[Weekly PR Report]" & vbNewLine & vbNewLine & "Attached PR Report dated " & Format(Date, "Medium Date") & "." & vbNewLine & vbNewLine & "<Editable Section>" & vbNewLine & vbNewLine & "Best Regards," & vbNewLine & "ECS TS"
+     .Attachments.Add TempFilePath & TempFileName & FileExtStr
+     .Display
+    End With
+  On Error GoTo 0
+
+On Error Resume Next
+OutlookMessage.Attachments.Add folderPath & "\Understanding PR Report.pdf" 'exact file name required
+On Error Resume Next
+' OutlookMessage.Attachments.Add folderPath & "\ECS Common Item List (Active).xlsx" 'exact file name required
+On Error Resume Next
+' OutlookMessage.Attachments.Add folderPath & "\CM01 Guide.pdf" 'exact file name required
+
+'Close & Delete the temporary file
+  DestinWB.Close SaveChanges:=False
+  Kill TempFilePath & TempFileName & FileExtStr
+
+'Clear Memory
+  Set OutlookMessage = Nothing
+  Set OutlookApp = Nothing
+  
+'Optimize Code
+ExitSub:
+  Application.ScreenUpdating = True
+  Application.EnableEvents = True
+  Application.DisplayAlerts = True
+
+End Sub

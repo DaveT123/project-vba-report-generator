@@ -1,0 +1,379 @@
+' SAP GUI Scripting
+' PURPOSE: Generate automated report from SAP T-code YMMP013
+
+
+Public SapGuiAuto, WScript, msgcol
+Public objGui  As GuiApplication
+Public objConn As GuiConnection
+Public objSess As GuiSession
+Public objSBar As GuiStatusbar
+Public objSheet As Worksheet
+Dim W_System
+Dim folderPath As String
+Const fpath1 = "C:\Users\"
+Const fpath2 = "\Desktop"
+Const ffilename = "export.XLSX"
+Sub LoadExcelFile()
+
+' Load the excel file
+
+    Workbooks.Open fpath1 & Range("B11").Value & fpath2 & "\" & ffilename
+    Windows(ffilename).Activate
+    Sheets("Sheet1").Select
+    Sheets("Sheet1").Copy Before:=Workbooks( _
+        "GUI_Scripting_ExtractingReport.xlsm").Sheets(1)
+    Windows(ffilename).Close
+    Sheets("Sheet1").Select
+    Rows("1:1").Select
+    Selection.Insert Shift:=xlDown, CopyOrigin:=xlFormatFromLeftOrAbove
+    Rows("1:1").Select
+    Selection.Insert Shift:=xlDown, CopyOrigin:=xlFormatFromLeftOrAbove
+    Range("A1").Select
+    Range("A1").Value = "Report Date & Time: " & Now()
+    Rows("3:3").Select
+    Selection.AutoFilter
+    Sheets("Sheet1").Name = "PR Report"
+    Sheets("PR Report").Range("A4").Select
+    ActiveWindow.FreezePanes = True
+    
+End Sub
+Sub AmendExcelFile()
+
+' Load the excel file
+
+    Workbooks.Open fpath1 & Range("B11").Value & fpath2 & "\" & ffilename
+    Windows(ffilename).Activate
+    Sheets("Sheet1").Select
+    Sheets("Sheet1").Copy Before:=Workbooks( _
+        "GUI_Scripting_ExtractingReport.xlsm").Sheets(1)
+    Windows(ffilename).Close
+    Sheets("Sheet1").Select
+    Rows("1:1").Select
+    Selection.Insert Shift:=xlDown, CopyOrigin:=xlFormatFromLeftOrAbove
+    Rows("1:1").Select
+    Selection.Insert Shift:=xlDown, CopyOrigin:=xlFormatFromLeftOrAbove
+    Range("A1").Select
+    Range("A1").Value = "Report Date & Time: " & Now()
+    Rows("3:3").Select
+    Selection.AutoFilter
+    Sheets("Sheet1").Name = "PR Report"
+    
+End Sub
+
+Sub DeleteAll()
+
+' DeleteAll Macro
+
+    On Error Resume Next
+    Sheets("PR Report").Select
+    Application.DisplayAlerts = False 'switching off the alert button
+    Sheets("PR Report").Delete
+    Application.DisplayAlerts = True 'switching on the alert button
+    
+End Sub
+
+Function Attach_Session() As Boolean
+Dim il, it
+Dim W_conn, W_Sess
+
+If W_System = "" Then
+   Attach_Session = False
+   Exit Function
+End If
+
+If Not objSess Is Nothing Then
+    On Error Resume Next
+    If objSess.Info.SystemName & objSess.Info.Client = W_System Then
+        Attach_Session = True
+        Exit Function
+    End If
+End If
+
+If objGui Is Nothing Then
+   Set SapGuiAuto = GetObject("SAPGUI")
+   Set objGui = SapGuiAuto.GetScriptingEngine
+End If
+
+For il = 0 To objGui.Children.Count - 1
+    Set W_conn = objGui.Children(il + 0)
+    For it = 0 To W_conn.Children.Count - 1
+        Set W_Sess = W_conn.Children(it + 0)
+        If W_Sess.Info.SystemName & W_Sess.Info.Client = W_System Then
+            Set objConn = objGui.Children(il + 0)
+            Set objSess = objConn.Children(it + 0)
+            Exit For
+        End If
+    Next
+Next
+
+If objSess Is Nothing Then
+   MsgBox "No active session to system " + W_System + ", or scripting is not enabled.", vbCritical + vbOKOnly
+   Attach_Session = False
+   Exit Function
+End If
+
+If IsObject(WScript) Then
+   WScript.ConnectObject objSess, "on"
+   WScript.ConnectObject objGui, "on"
+End If
+
+Set objSBar = objSess.FindById("wnd[0]/sbar")
+objSess.FindById("wnd[0]").maximize
+Attach_Session = True
+
+
+End Function
+
+Public Sub RunGUIScriptPR1()
+
+Dim W_Ret As Boolean
+Dim prtype As String
+Dim prstart As String
+Dim prend As String
+Dim datestart As String
+Dim dateend As String
+
+
+' Define variable
+Sheets("Interface").Select
+prtype = Range("B13").Value
+datestart = Range("B14").Value
+dateend = Range("B15").Value
+prstart = Range("B16").Value
+prend = Range("B17").Value
+
+' Connect to SAP
+W_Ret = Attach_Session
+If Not W_Ret Then
+    Exit Sub
+End If
+
+
+On Error GoTo myerr
+
+
+objSess.FindById("wnd[0]").maximize
+objSess.FindById("wnd[0]/tbar[0]/okcd").Text = "ymmp013"
+objSess.FindById("wnd[0]").sendVKey 0
+objSess.FindById("wnd[0]/usr/ctxtS_BSART-LOW").Text = prtype
+objSess.FindById("wnd[0]/usr/ctxtS_BANFN-LOW").Text = prstart
+objSess.FindById("wnd[0]/usr/ctxtS_BANFN-HIGH").Text = prend
+objSess.FindById("wnd[0]/usr/ctxtS_BADAT-LOW").Text = datestart
+objSess.FindById("wnd[0]/usr/ctxtS_BADAT-HIGH").Text = dateend
+objSess.FindById("wnd[0]/tbar[1]/btn[8]").press
+objSess.FindById("wnd[0]/mbar/menu[0]/menu[3]/menu[1]").Select
+objSess.FindById("wnd[1]/usr/ctxtDY_PATH").Text = fpath1 & Range("B11").Value & fpath2
+objSess.FindById("wnd[1]/usr/ctxtDY_FILENAME").Text = ffilename
+objSess.FindById("wnd[1]/usr/ctxtDY_FILENAME").caretPosition = 11
+objSess.FindById("wnd[1]/tbar[0]/btn[0]").press
+
+Exit Sub
+
+myerr:
+   MsgBox "Error occured while retrieving data", vbCritical + vbOKOnly
+    
+
+End Sub
+
+Public Sub RunGUIScriptPR2()
+
+Dim W_Ret As Boolean
+Dim prtype As String
+Dim prstart As String
+Dim prend As String
+Dim datestart As String
+Dim dateend As String
+
+
+' Define variable
+Sheets("Interface").Select
+prtype = lr
+prstart = Range("B14").Value
+prend = Range("B15").Value
+datestart = Range("B16").Value
+dateend = Range("B17").Value
+
+' Connect to SAP
+W_Ret = Attach_Session
+If Not W_Ret Then
+    Exit Sub
+End If
+
+
+On Error GoTo myerr
+
+
+objSess.FindById("wnd[0]").maximize
+objSess.FindById("wnd[0]/tbar[0]/okcd").Text = "ymmp013"
+objSess.FindById("wnd[0]").sendVKey 0
+objSess.FindById("wnd[0]/usr/ctxtS_BSART-LOW").Text = prtype
+objSess.FindById("wnd[0]/usr/ctxtS_BANFN-LOW").Text = prstart
+objSess.FindById("wnd[0]/usr/ctxtS_BANFN-HIGH").Text = prend
+objSess.FindById("wnd[0]/usr/ctxtS_BADAT-LOW").Text = datestart
+objSess.FindById("wnd[0]/usr/ctxtS_BADAT-HIGH").Text = dateend
+objSess.FindById("wnd[0]/tbar[1]/btn[8]").press
+objSess.FindById("wnd[0]/mbar/menu[0]/menu[3]/menu[1]").Select
+objSess.FindById("wnd[1]/usr/ctxtDY_PATH").Text = fpath1 & Range("B11").Value & fpath2
+objSess.FindById("wnd[1]/usr/ctxtDY_FILENAME").Text = ffilename
+objSess.FindById("wnd[1]/usr/ctxtDY_FILENAME").caretPosition = 11
+objSess.FindById("wnd[1]/tbar[0]/btn[0]").press
+
+Exit Sub
+
+myerr:
+   MsgBox "Error occured while retrieving data", vbCritical + vbOKOnly
+    
+
+End Sub
+
+Sub SAPLogOn()
+
+Dim Appl As Object
+Dim Connection As Object
+Dim session As Object
+Dim WshShell As Object
+Dim SapGui As Object
+Dim user As String
+Dim pw As String
+
+' Define variables
+user = Range("B11").Value
+pw = Range("B12").Value
+
+'Of course change for your file directory
+Shell "C:\Program Files (x86)\SAP\FrontEnd\SAPgui\saplogon.exe", 4
+Set WshShell = CreateObject("WScript.Shell")
+
+Do Until WshShell.AppActivate("SAP Logon ")
+    Application.Wait Now + TimeValue("0:00:01")
+Loop
+
+Set WshShell = Nothing
+
+Set SapGui = GetObject("SAPGUI")
+Set Appl = SapGui.GetScriptingEngine
+Set Connection = Appl.OpenConnection("16 EP1 Production Azure", _
+    True)
+Set session = Connection.Children(0)
+
+'if You need to pass username and password
+session.FindById("wnd[0]/usr/txtRSYST-MANDT").Text = "100"
+session.FindById("wnd[0]/usr/txtRSYST-BNAME").Text = user
+session.FindById("wnd[0]/usr/pwdRSYST-BCODE").Text = pw
+session.FindById("wnd[0]/usr/txtRSYST-LANGU").Text = "EN"
+
+If session.Children.Count > 1 Then
+
+    answer = MsgBox("You've got opened SAP already," & _
+"please leave and try again", vbOKOnly, "Opened SAP")
+
+    session.FindById("wnd[1]/usr/radMULTI_LOGON_OPT3").Select
+    session.FindById("wnd[1]/usr/radMULTI_LOGON_OPT3").SetFocus
+    session.FindById("wnd[1]/tbar[0]/btn[0]").press
+
+    Exit Sub
+
+End If
+
+session.FindById("wnd[0]").maximize
+session.FindById("wnd[0]").sendVKey 0 'ENTER
+
+'and there goes your code in SAP
+
+End Sub
+
+Sub SAPLogOut()
+
+Dim Appl As Object
+Dim SapGuiAuto As Object
+Dim Connection As Object
+Dim session As Object
+Dim Wshell As Object
+
+Path = "C:\Program Files (x86)\SAP\FrontEnd\SAPgui\saplogon.exe"
+On Error Resume Next
+Set SapGuiAuto = GetObject("SAPGUI")
+If Err.Number <> 0 Then
+    ' MsgBox " 'SAP Logon' is not active.", vbInformation, "Information"
+    Else
+    On Error GoTo 0
+    Set Appl = SapGuiAuto.GetScriptingEngine
+    On Error Resume Next
+    Set Connection = Appl.Children(0)
+    If Err.Number <> 0 Then
+        MsgBox " No SAP - Session is active.", vbInformation, "Information"
+        Else
+        On Error GoTo 0
+        While Connection.Children.Count > 0
+        Set session = Connection.Children(0)
+        session.FindById("wnd[0]").Close
+        On Error Resume Next
+        session.FindById("wnd[1]/usr/btnSPOP-OPTION1").press
+        On Error GoTo 0
+        Wend
+    End If
+    Set Wshell = CreateObject("Wscript.Shell")
+    Wshell.Run Chr(34) & Path & Chr(34)
+    Application.Wait (Now + TimeValue("0:00:1"))
+    bWindowFound = Wshell.AppActivate("SAP Logon")
+    If bWindowFound Then
+        Wshell.AppActivate "SAP Logon"
+        Application.Wait (Now + TimeValue("0:00:1"))
+        Wshell.SendKeys "%{F4}"
+        Application.Wait (Now + TimeValue("0:00:1"))
+    End If
+End If
+
+End Sub
+
+Sub StartPRExtract()
+    ' Delete old worksheet data
+    DeleteAll
+    
+    ' End all existing SAP session
+    SAPLogOut
+    
+    ' Log in to SAP
+    SAPLogOn
+
+    ' Set the sid and client to connect to
+    W_System = "EP1100"
+    
+    ' Run the GUI script for PR Report EC
+    RunGUIScriptPR1
+    
+    ' End the GUI session
+    objSess.EndTransaction
+    
+    ' Load the Excel file
+    LoadExcelFile
+
+    ' Run the GUI script for PR Report LR
+    ' RunGUIScriptPR2
+
+    ' Update the time and date on the control worksheet
+    Sheets("Interface").Select
+    Cells(2, 2).Value = Now()
+    
+    ' End SAP session
+    SAPLogOut
+    
+    ' Delete export file on desktop
+    Kill fpath1 & Range("B11").Value & fpath2 & "\" & ffilename
+    
+End Sub
+
+Sub EmailPrReport()
+
+Dim Result As Integer
+
+    ' Prompt User
+    Result = MsgBox("Please ensure PR Report has been updated. Do you want to continue?", vbYesNo + vbExclamation)
+        If Result = vbNo Then
+            Exit Sub
+        End If
+        
+    ' Draft Email
+    Call Module2.EmailSelectedSheets
+
+End Sub
