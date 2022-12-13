@@ -1,4 +1,7 @@
-#Excel VBA script
+<!-- ABOUT THE PROJECT -->
+## About The Project
+
+### Introduction
 
 Self initiated project at workplace to automate generation of frequently used SAP report.
 
